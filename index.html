@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>A4 PDF 小冊子還原工具</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">完全離線 · 文件不會上載</p>
+        <h1>A4 PDF 小冊子還原工具</h1>
+        <p class="subtitle">把雙面掃描的大頁 PDF 分成左右兩張 A4，並自動還原小冊子頁序。</p>
+      </div>
+      <div class="a4-mark" aria-hidden="true"><span>A4</span></div>
+    </header>
+
+    <section class="panel step-panel">
+      <div class="step-heading"><span>1</span><div><h2>選擇掃描 PDF</h2><p>支援一個多頁 PDF；檔案只在本機瀏覽器處理。</p></div></div>
+      <label id="dropZone" class="drop-zone" for="pdfInput">
+        <input id="pdfInput" type="file" accept="application/pdf,.pdf">
+        <strong>按此選擇或拖放 PDF</strong>
+        <span id="fileLabel">尚未選擇檔案</span>
+      </label>
+      <div id="fileMeta" class="file-meta hidden" aria-live="polite"></div>
+    </section>
+
+    <section class="panel step-panel">
+      <div class="step-heading"><span>2</span><div><h2>選擇還原方式</h2><p>一般試卷小冊子建議使用第一項。</p></div></div>
+      <div class="mode-grid">
+        <label class="mode-card selected">
+          <input type="radio" name="mode" value="booklet" checked>
+          <span class="mode-icon">📖</span>
+          <span><strong>小冊子還原（建議）</strong><small>每張紙先掃正面、再掃背面；自動重排至 1、2、3……</small></span>
+        </label>
+        <label class="mode-card">
+          <input type="radio" name="mode" value="simple">
+          <span class="mode-icon">✂️</span>
+          <span><strong>普通左右分割</strong><small>每個掃描頁按左頁、右頁的順序輸出。</small></span>
+        </label>
+      </div>
+      <div id="bookletDiagram" class="diagram">
+        <div><b>第 1 張紙正面</b><span>最後一頁</span><span>第 1 頁</span></div>
+        <div><b>第 1 張紙背面</b><span>第 2 頁</span><span>尾二頁</span></div>
+      </div>
+    </section>
+
+    <section class="panel step-panel">
+      <div class="step-heading"><span>3</span><div><h2>掃描及裁切設定</h2><p>首次可保留預設；如預覽方向不正確才調整。</p></div></div>
+      <div class="settings-grid">
+        <label class="toggle-row"><span><strong>整份左右互換</strong><small>掃描頁的左、右內容與示意圖相反</small></span><input id="swapSides" type="checkbox"><i></i></label>
+        <label class="toggle-row"><span><strong>偶數掃描頁旋轉 180°</strong><small>雙面掃描後，所有背頁上下倒轉時使用</small></span><input id="rotateBack" type="checkbox"><i></i></label>
+        <label class="number-field"><span>中央裝訂邊裁走</span><span><input id="gutterMm" type="number" min="0" max="20" step="0.5" value="0"> mm</span></label>
+        <label class="number-field"><span>分割線左右微調</span><span><input id="splitOffsetMm" type="number" min="-20" max="20" step="0.5" value="0"> mm</span></label>
+        <label class="number-field"><span>四周裁邊</span><span><input id="outerMarginMm" type="number" min="0" max="20" step="0.5" value="0"> mm</span></label>
+      </div>
+      <details>
+        <summary>甚麼情況需要改設定？</summary>
+        <ul>
+          <li>第 1 頁變成最後一頁：啟用「整份左右互換」。</li>
+          <li>第 2、11、4、9……頁上下倒轉：啟用「偶數掃描頁旋轉 180°」。</li>
+          <li>中間仍見到釘孔或黑邊：增加「中央裝訂邊裁走」。</li>
+          <li>左右頁切歪：用「分割線左右微調」，正數向右移。</li>
+        </ul>
+      </details>
+    </section>
+
+    <section class="action-panel">
+      <button id="convertBtn" class="primary" disabled>開始轉換為 A4 PDF</button>
+      <button id="resetBtn" class="secondary" type="button">重新設定</button>
+      <div class="progress-wrap hidden" id="progressWrap">
+        <div class="progress"><i id="progressBar"></i></div><span id="progressText">準備中……</span>
+      </div>
+      <p id="message" class="message" aria-live="polite"></p>
+    </section>
+
+    <section id="resultPanel" class="panel result-panel hidden">
+      <div class="result-head"><div><p class="eyebrow">轉換完成</p><h2 id="resultTitle">A4 PDF 已經準備好</h2><p id="resultMeta"></p></div><a id="downloadBtn" class="download" download>下載 A4 PDF</a></div>
+      <iframe id="previewFrame" title="輸出 PDF 預覽"></iframe>
+      <p class="preview-note">請先檢查第 1、2、尾二及最後一頁。如頁序或方向不正確，可更改上方設定後再次轉換。</p>
+    </section>
+
+    <footer>本工具在你的電腦內處理 PDF，不會把試卷或文件傳送到互聯網。</footer>
+  </main>
+  <script src="vendor/pdf-lib.min.js"></script>
+  <script src="splitter-core.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
