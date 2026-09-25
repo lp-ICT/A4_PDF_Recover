@@ -38,5 +38,18 @@
     if(box.right-box.left<20||box.top-box.bottom<20)throw new Error('裁切設定過大，頁面沒有足夠內容。');
     return box;
   }
-  return {buildPlan,cropBox};
+
+  function normalizeRotation(angle){
+    const normalized=((Number(angle)||0)%360+360)%360;
+    return [0,90,180,270].includes(normalized)?normalized:0;
+  }
+
+  function rotationPlan(width,height,angle){
+    const rotation=normalizeRotation(angle);
+    if(rotation===90)return {width:height,height:width,x:0,y:width,rotation:270};
+    if(rotation===180)return {width,height,x:width,y:height,rotation:180};
+    if(rotation===270)return {width:height,height:width,x:height,y:0,rotation:90};
+    return {width,height,x:0,y:0,rotation:0};
+  }
+  return {buildPlan,cropBox,normalizeRotation,rotationPlan};
 });

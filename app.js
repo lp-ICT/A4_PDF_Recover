@@ -29,8 +29,11 @@
     try{
       sourceBytes=new Uint8Array(await file.arrayBuffer());sourceName=file.name;
       const doc=await PDFLib.PDFDocument.load(sourceBytes,{ignoreEncryption:false});
+      const rotations=doc.getPages().map(p=>SplitterCore.normalizeRotation(p.getRotation().angle));
+      const rotatedCount=rotations.filter(angle=>angle!==0).length;
+      const rotationNote=rotatedCount?` · 偵測到 ${rotatedCount} 頁旋轉標記，轉換時會自動修正`:'';
       $('fileLabel').textContent=file.name;
-      $('fileMeta').textContent=`✓ 已載入 ${doc.getPageCount()} 個掃描頁 · ${(file.size/1024/1024).toFixed(1)} MB · 預計輸出 ${doc.getPageCount()*2} 張 A4`;
+      $('fileMeta').textContent=`✓ 已載入 ${doc.getPageCount()} 個掃描頁 · ${(file.size/1024/1024).toFixed(1)} MB · 預計輸出 ${doc.getPageCount()*2} 張 A4${rotationNote}`;
       $('fileMeta').classList.remove('hidden');convertBtn.disabled=false;
     }catch(err){sourceBytes=null;convertBtn.disabled=true;showMessage(err.message.includes('encrypted')?'此 PDF 已加密，請先解除密碼保護。':'無法讀取這個 PDF，請確認檔案沒有損壞。')}
   }
@@ -41,7 +44,8 @@
     setProgress(3,'讀取 PDF……');
     try{
       await nextFrame();
-      const src=await PDFLib.PDFDocument.load(sourceBytes);
+      const originalSrc=await PDFLib.PDFDocument.load(sourceBytes);
+      const src=await normalizeRotatedPages(originalSrc);
       const mode=selectedMode(),swap=$('swapSides').checked,rotateBack=$('rotateBack').checked;
       const plan=SplitterCore.buildPlan(src.getPageCount(),mode,swap);
       const out=await PDFLib.PDFDocument.create();
@@ -71,7 +75,9 @@
       const base=sourceName.replace(/\.pdf$/i,'');
       $('downloadBtn').href=downloadUrl;$('downloadBtn').download=`${base}_A4還原版.pdf`;
       $('previewFrame').src=previewUrl+'#page=1&zoom=page-fit';
-      $('resultMeta').textContent=`${src.getPageCount()} 個掃描頁 → ${plan.length} 張標準 A4 · ${(blob.size/1024/1024).toFixed(1)} MB`;
+      const fixedCount=originalSrc.getPages().filter(p=>SplitterCore.normalizeRotation(p.getRotation().angle)!==0).length;
+      const fixedNote=fixedCount?` · 已自動修正 ${fixedCount} 頁方向`:'';
+      $('resultMeta').textContent=`${src.getPageCount()} 個掃描頁 → ${plan.length} 張標準 A4 · ${(blob.size/1024/1024).toFixed(1)} MB${fixedNote}`;
       $('resultPanel').classList.remove('hidden');setProgress(100,'完成');
       $('resultPanel').scrollIntoView({behavior:'smooth',block:'start'});
     }catch(err){showMessage(err.message||'轉換失敗，請嘗試另一個 PDF。');$('progressWrap').classList.add('hidden')}
@@ -82,6 +88,25 @@
     sourceBytes=null;sourceName='';input.value='';convertBtn.disabled=true;showMessage('');
     $('fileLabel').textContent='尚未選擇檔案';$('fileMeta').classList.add('hidden');$('resultPanel').classList.add('hidden');$('progressWrap').classList.add('hidden');
     cleanUrl(previewUrl);cleanUrl(downloadUrl);previewUrl=downloadUrl=null;
+  }
+
+  async function normalizeRotatedPages(src){
+    const pages=src.getPages();
+    const needsFix=pages.some(page=>SplitterCore.normalizeRotation(page.getRotation().angle)!==0);
+    if(!needsFix)return src;
+    setProgress(5,'自動修正頁面方向……');await nextFrame();
+    const normalized=await PDFLib.PDFDocument.create();
+    for(let i=0;i<pages.length;i++){
+      const sourcePage=pages[i],{width,height}=sourcePage.getSize();
+      const rotation=sourcePage.getRotation().angle;
+      const plan=SplitterCore.rotationPlan(width,height,rotation);
+      const embedded=await normalized.embedPage(sourcePage,{left:0,bottom:0,right:width,top:height});
+      const target=normalized.addPage([plan.width,plan.height]);
+      target.drawPage(embedded,{x:plan.x,y:plan.y,width,height,rotate:PDFLib.degrees(plan.rotation)});
+      if(i%2===0){setProgress(5+Math.round((i+1)/pages.length*10),`修正第 ${i+1} / ${pages.length} 頁方向……`);await nextFrame()}
+    }
+    const bytes=await normalized.save({useObjectStreams:true});
+    return PDFLib.PDFDocument.load(bytes);
   }
   function nextFrame(){return new Promise(resolve=>requestAnimationFrame(()=>resolve()))}
 })();
